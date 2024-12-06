@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Multi-Window Chat</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f2f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .setup-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .chat-windows {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .chat-window {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 15px;
+        }
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+        }
+        .message {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 4px;
+            max-width: 80%;
+        }
+        .message.sent {
+            background: #0084ff;
+            color: white;
+            margin-left: auto;
+        }
+        .message.received {
+            background: #e9ecef;
+            color: black;
+        }
+        .message.system {
+            background: #ffd700;
+            color: black;
+            text-align: center;
+            font-style: italic;
+            margin: 10px auto;
+            padding: 5px 15px;
+            border-radius: 15px;
+            width: fit-content;
+        }
+        .sender-info {
+            font-size: 0.8em;
+            margin-bottom: 2px;
+            color: #666;
+        }
+        .input-group {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            flex: 1;
+        }
+        button {
+            padding: 8px 15px;
+            background: #0084ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0073e6;
+        }
+        .window-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .status-indicator {
+            font-size: 0.8em;
+            color: #666;
+            margin-left: 10px;
+        }
+        .status-indicator.connected {
+            color: #28a745;
+        }
+        .status-indicator.disconnected {
+            color: #dc3545;
+        }
+        .participant-count {
+            font-size: 0.8em;
+            color: #666;
+            margin-left: auto;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="setup-panel">
+            <h2>Chat Setup</h2>
+            <div class="input-group">
+                <input type="text" id="userId" placeholder="Enter your user ID">
+            </div>
+            <div class="input-group">
+                <input type="text" id="existingChatId" placeholder="Enter existing chat ID">
+                <button onclick="joinExistingChat()">Join Existing Chat</button>
+            </div>
+        </div>
+        <div class="chat-windows" id="chatWindows">
+            <!-- Chat windows will be added here dynamically -->
+        </div>
+    </div>
+
+    <script>
+        const activeChats = new Map();
+        let globalWebSocket = null;
+        const chatParticipants = new Map(); // Track participants per chat
+
+        async function loadChatHistory(chatId, messagesDiv, userId) {
+            try {
+                const response = await fetch(`/api/messages/${chatId}`);
+                const messages = await response.json();
+                
+                messagesDiv.innerHTML = '';
+                messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                
+                messages.forEach(msg => {
+                    const timestamp = new Date().toLocaleString('en-US', {
+                        timeZone: 'Asia/Kolkata',
+                        dateStyle: 'short',
+                        timeStyle: 'short'
+                    });
+                    if (msg.type === 'system') {
+                        appendMessage(messagesDiv, msg.content, 'system');
+                        if (msg.content.includes('has joined')) {
+                            updateParticipants(chatId, msg.sender_id, 'join');
+                        } else if (msg.content.includes('has left')) {
+                            updateParticipants(chatId, msg.sender_id, 'leave');
+                        }
+                    } else {
+                        const type = msg.sender_id === userId ? 'sent' : 'received';
+                        appendMessage(messagesDiv, msg.content, type, msg.sender_id,timestamp);
+                    }
+                });
+                
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+                appendMessage(messagesDiv, 'Error loading chat history', 'system');
+            }
+        }
+
+        function initializeGlobalWebSocket(userId) {
+            if (globalWebSocket) {
+                globalWebSocket.close();
+            }
+            console.log('Initializing WebSocket for user:', userId);
+            globalWebSocket = new WebSocket(`ws://localhost:8000/ws/${userId}`);
+
+            globalWebSocket.onopen = () => {
+                console.log('WebSocket connection established');
+                updateAllConnectionStatus(true);
+                // Send a join notification for each active chat
+                activeChats.forEach((_, chatId) => {
+                    sendJoinNotification(chatId, userId);
+                });
+            };
+
+            globalWebSocket.onmessage = (event) => {
+                console.log('Received message:', event.data);
+                handleIncomingMessage(event.data);
+            };
+
+            globalWebSocket.onclose = () => {
+                console.log('WebSocket connection closed');
+                updateAllConnectionStatus(false);
+                // Send leave notifications for all active chats
+                activeChats.forEach((_, chatId) => {
+                    sendLeaveNotification(chatId, userId);
+                });
+                setTimeout(() => {
+                    initializeGlobalWebSocket(userId);
+                }, 5000);
+            };
+
+            globalWebSocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                updateAllConnectionStatus(false);
+            };
+        }
+
+        function updateAllConnectionStatus(isConnected) {
+            const statusIndicators = document.querySelectorAll('.status-indicator');
+            statusIndicators.forEach(indicator => {
+                indicator.textContent = isConnected ? '● Connected' : '● Disconnected';
+                indicator.className = `status-indicator ${isConnected ? 'connected' : 'disconnected'}`;
+            });
+        }
+
+        function handleIncomingMessage(data) {
+            try {
+                const messageData = JSON.parse(data);
+                const { chat_id, content, sender_id, timestamp, type, mssg_type, file_name } = messageData;
+                const currentUserId = document.getElementById('userId').value;
+
+                const chatWindow = document.getElementById(`messages-${chat_id}`);
+                if (chatWindow) {
+                    if (type === 'system') {
+                        appendMessage(chatWindow, content, 'system');
+                        if (content.includes('has joined')) {
+                            updateParticipants(chat_id, sender_id, 'join');
+                        } else if (content.includes('has left')) {
+                            updateParticipants(chat_id, sender_id, 'leave');
+                        }
+                    } else if (sender_id !== currentUserId) {
+                        appendMessage(chatWindow, content, 'received', sender_id, timestamp,mssg_type,file_name);
+                    }
+                }
+            } catch (error) {
+                console.error('Error handling incoming message:', error);
+            }
+        }
+
+        function sendJoinNotification(chatId, userId) {
+            const message = {
+                chat_id: chatId,
+                sender_id: userId,
+                content: `${userId} has joined the chat`,
+                timestamp: new Date().toLocaleString('en-US', {
+                    timeZone: 'Asia/Kolkata',
+                    dateStyle: 'short',
+                    timeStyle: 'short'
+                }),
+                type: 'system',
+                mssg_type: 'text',
+                file_name: null,
+                file_type: null
+            };
+
+            if (globalWebSocket && globalWebSocket.readyState === WebSocket.OPEN) {
+                globalWebSocket.send(JSON.stringify(message));
+            }
+        }
+        async function createChatWindow(chatId, userId) {
+            if (activeChats.has(chatId)) {
+                return;
+            }
+
+            const chatWindow = document.createElement('div');
+            chatWindow.className = 'chat-window';
+            chatWindow.id = `chat-${chatId}`;
+
+            const header = document.createElement('div');
+            header.className = 'window-header';
+            header.innerHTML = `
+                <h4>Chat with ID: ${chatId}</h4>
+                <span class="status-indicator disconnected">● Disconnected</span>
+            `;
+            chatWindow.appendChild(header);
+
+            const messagesDiv = document.createElement('div');
+            messagesDiv.className = 'messages';
+            messagesDiv.id = `messages-${chatId}`;
+            chatWindow.appendChild(messagesDiv);
+
+            const inputGroup = document.createElement('div');
+            inputGroup.className = 'input-group';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'Type your message...';
+
+            // File upload input
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.id = `fileUpload-${chatId}`;
+            fileInput.style.display = 'none';
+            fileInput.multiple = true; // Allow multiple files
+
+            const fileLabel = document.createElement('label');
+            fileLabel.setAttribute('for', `fileUpload-${chatId}`);
+            fileLabel.style.cursor = 'pointer';
+            fileLabel.textContent = '📎'; // File upload icon
+            fileLabel.title = 'Attach files';
+
+            // Add file upload handler
+            fileInput.addEventListener('change', async (event) => {
+                const files = Array.from(event.target.files);
+                for (const file of files) {
+                    await uploadFile(chatId, userId, file, messagesDiv);
+                }
+                fileInput.value = ''; // Reset file input
+            });
+
+            const sendButton = document.createElement('button');
+            sendButton.textContent = 'Send';
+            sendButton.onclick = () => sendMessage(chatId, userId, input, messagesDiv);
+            
+            // Add enter key support for sending messages
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage(chatId, userId, input, messagesDiv);
+                }
+            });
+
+            inputGroup.appendChild(input);
+            inputGroup.appendChild(fileLabel);
+            inputGroup.appendChild(fileInput);
+            inputGroup.appendChild(sendButton);
+            chatWindow.appendChild(inputGroup);
+
+            document.getElementById('chatWindows').appendChild(chatWindow);
+            activeChats.set(chatId, chatWindow);
+            await loadChatHistory(chatId, messagesDiv, userId);
+        }
+
+        async function joinExistingChat() {
+            const chatId = document.getElementById('existingChatId').value;
+            const userId = document.getElementById('userId').value;
+            if (!chatId || !userId) {
+                alert('Please enter both user ID and chat ID');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/chats/${userId}`);
+                const chats = await response.json();
+
+                const chatExists = chats.some(chat => chat.id === chatId);
+                if (chatExists) {
+                    await createChatWindow(chatId, userId);
+                    if (!globalWebSocket || globalWebSocket.readyState !== WebSocket.OPEN) {
+                        initializeGlobalWebSocket(userId);
+                    } else {
+                        sendJoinNotification(chatId, userId);
+                    }
+                } else {
+                    alert('Chat not found');
+                }
+            } catch (error) {
+                console.error('Error joining chat:', error);
+                alert('Error joining chat');
+            }
+        }
+
+        function sendMessage(chatId, userId, inputElement, messagesDiv) {
+            const content = inputElement.value.trim();
+            if (!content) {
+                return;
+            }
+            const timestamp = new Date().toLocaleString('en-US', {
+                timeZone: 'Asia/Kolkata',
+                dateStyle: 'short',
+                timeStyle: 'short'
+            });
+
+            const message = {
+                chat_id: chatId,
+                sender_id: userId,
+                content,
+                timestamp,
+                read: false,
+                mssg_type: 'text',
+                file_name: null,
+                file_type: null
+            };
+
+            if (globalWebSocket && globalWebSocket.readyState === WebSocket.OPEN) {
+                globalWebSocket.send(JSON.stringify(message));
+                appendMessage(messagesDiv, content, 'sent', userId, timestamp);
+                inputElement.value = '';
+            } else {
+                alert('WebSocket connection is not open');
+            }
+        }
+
+        function appendMessage(messagesDiv, content, type, senderId, timestamp = null, mssgType = 'text', fileName = null) {
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${type}`;
+
+            if (type === 'sent' || type === 'received') {
+                const senderInfo = document.createElement('div');
+                senderInfo.className = 'sender-info';
+                senderInfo.textContent = `From: ${senderId} at ${timestamp}`;
+                messageElement.appendChild(senderInfo);
+            }
+
+            if (mssgType === 'file') {
+                const fileLink = document.createElement('a');
+                fileLink.href = content; // File URL
+                fileLink.target = '_blank';
+                fileLink.textContent = fileName || 'Download File';
+                messageElement.appendChild(fileLink);
+            } else {
+                const messageContent = document.createElement('div');
+                messageContent.textContent = content;
+                messageElement.appendChild(messageContent);
+            }
+
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+
+        async function uploadFile(chatId, userId, file, messagesDiv) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('chat_id', chatId);
+        formData.append('sender_id', userId);
+
+        try {
+            // Upload file via REST API
+            const response = await fetch('/api/chat/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                // Inform other participants via WebSocket
+                const message = {
+                    chat_id: chatId,
+                    sender_id: userId,
+                    content: result.file_url, // File URL
+                    file_name: file.name,
+                    file_type: file.type,
+                    timestamp: new Date().toLocaleString(),
+                    mssg_type: 'file'
+                };
+
+                if (globalWebSocket && globalWebSocket.readyState === WebSocket.OPEN) {
+                    globalWebSocket.send(JSON.stringify(message));
+                }
+
+                // Display file in chat
+                displayFileMessage(messagesDiv, message, 'sent');
+            } else {
+                console.error('File upload failed:', result.message);
+            }
+        } catch (error) {
+            console.error('Error uploading file:', error);
+        }
+}
+
+        function displayFileMessage(messagesDiv, message, type) {
+            const fileLink = document.createElement('a');
+            fileLink.href = message.content; // File URL
+            fileLink.target = '_blank';
+            fileLink.textContent = message.file_name;
+
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${type}`;
+
+            const senderInfo = document.createElement('div');
+            senderInfo.className = 'sender-info';
+            senderInfo.textContent = `${type === 'sent' ? 'You' : message.sender_id} at ${message.timestamp}`;
+
+            messageElement.appendChild(senderInfo);
+            messageElement.appendChild(fileLink);
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+    </script>
+</body>
+</html>
