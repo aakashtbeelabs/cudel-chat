@@ -2,14 +2,17 @@ import aio_pika
 import json
 from datetime import datetime
 from fastapi import WebSocket
-
+import os
+from dotenv import load_dotenv
+load_dotenv()
+RABBITMQURL = os.getenv("RABBITMQURL")
 class MessagePublisher:
     def __init__(self):
         self.connection = None
         self.channel = None
 
     async def connect(self):
-        self.connection = await aio_pika.connect_robust("amqp://guest:guest@localhost/")
+        self.connection = await aio_pika.connect_robust(RABBITMQURL)
         self.channel = await self.connection.channel()
         await self.channel.declare_exchange("chat_exchange", aio_pika.ExchangeType.DIRECT)
 
@@ -39,7 +42,7 @@ class MessageConsumer:
 
     async def connect(self):
         self.connection = await aio_pika.connect_robust(
-            "amqp://guest:guest@localhost/"
+            RABBITMQURL
         )
         self.channel = await self.connection.channel()
         

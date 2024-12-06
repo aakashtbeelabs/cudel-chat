@@ -1,0 +1,77 @@
+# Compiled Python files
+__pycache__/
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+venv*/
+.venv/
+
+# Log files
+*.log
+
+# Compiled files
+*.pyz
+
+# Local development files
+*.swp
+*.swo
+*.bak
+
+# Database files
+*.sqlite3
+
+# Temporary files
+*.tmp
+
+# IDE-specific directories
+.vscode/
+.idea/
+
+# Python project files
+*.egg-info/
+
+# Docker
+Dockerfile
+docker-compose.yml
+
+# Alembic
+alembic.ini
+
+# OS-specific directories
+__MACOSX/
+
+# Site packages and environment directories
+Lib/site-packages/
+include/site/
+
+# Ignore compiled binaries
+bin/
+Scripts/
+lib/
+lib64/
+include/
+
+# Ignore generated files
+pyvenv.cfg
+
+# Ignore cspell configuration file
+.cspell.json
+
+# Ignore environment files
+.env
+
+# Ignore sensitive configuration
+config.yaml
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+*.ipynb
+
+#deploy ignore
+deploy_script.sh
+
+*.json:Zone.Identifier
