@@ -1,6 +1,6 @@
 # app/routers/chat.py
 from typing import List
-from fastapi import APIRouter, Depends,UploadFile, File
+from fastapi import APIRouter, Depends,UploadFile, File,status,HTTPException
 from fastapi.responses import JSONResponse
 from app.models import Chat, ChatResponse, MessgaeResponse
 from app.database import get_database
@@ -21,20 +21,38 @@ s3_client = boto3.client(
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
     region_name=AWS_REGION,
 )
-@router.post("/chats/", response_model=ChatResponse)
+
+@router.post("/chats", response_model=ChatResponse, status_code=status.HTTP_200_OK)
 async def create_chat(chat: Chat, db=Depends(get_database)):
-    chat_dict = chat.dict(by_alias=True)
-    result = await db.chats.insert_one(chat_dict)
-    message_doc = {"chat_id": str(result.inserted_id), "messages": []}
-    await db.messages.insert_one(message_doc)
-    created_chat = await db.chats.find_one({"_id": result.inserted_id})
-    return ChatResponse(
-        id=str(created_chat["_id"]),
-        participants=created_chat["participants"],
-        created_at=created_chat["created_at"],
-        last_message=created_chat.get("last_message"),
-        last_message_time=created_chat.get("last_message_time")
-    )
+    try:
+        existing_chat = await db.chats.find_one({"bookingId": chat.bookingId})
+        if existing_chat:
+            return ChatResponse(
+                id=str(existing_chat["_id"]),
+                participants=existing_chat.get("participants", []),
+                created_at=existing_chat.get("created_at"),
+                last_message=existing_chat.get("last_message"),
+                last_message_time=existing_chat.get("last_message_time")
+            )
+        chat_dict = chat.dict(by_alias=True)
+        result = await db.chats.insert_one(chat_dict)
+        message_doc = {"chat_id": str(result.inserted_id), "messages": []}
+        await db.messages.insert_one(message_doc)
+        created_chat = await db.chats.find_one({"_id": result.inserted_id})
+        if not created_chat:
+            raise HTTPException(status_code=500, detail="Chat creation failed.")
+        return ChatResponse(
+            id=str(created_chat["_id"]),
+            participants=created_chat.get("participants", []),
+            created_at=created_chat.get("created_at"),
+            last_message=created_chat.get("last_message"),
+            last_message_time=created_chat.get("last_message_time")
+        )
+    except Exception as e:
+        # Handle unexpected errors gracefully
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 @router.get("/chats/{user_id}", response_model=List[ChatResponse])
 async def get_user_chats(user_id: str, db=Depends(get_database)):
