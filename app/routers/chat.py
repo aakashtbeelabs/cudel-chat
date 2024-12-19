@@ -85,6 +85,10 @@ async def upload_file(file: UploadFile = File(...)):
     mime_type, _ = mimetypes.guess_type(file.filename)
     file_type = mime_type.split('/')[0] if mime_type else "unknown" 
     height, width = None, None
+    if file_type == "application":
+        height, width = 250, 500
+    elif file_type == "video":
+        height, width = 300, 300
     if file_type == "image":
         try:
             with Image.open(BytesIO(file_content)) as img:
