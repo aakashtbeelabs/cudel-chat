@@ -181,7 +181,10 @@
                 globalWebSocket.close();
             }
             console.log('Initializing WebSocket for user:', userId);
-            globalWebSocket = new WebSocket(`ws://staging-api-chat.cudel.in/ws/${userId}`);
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsHost = 'staging-api-chat.cudel.in';
+            const wsUrl = `${protocol}//${wsHost}/ws/${userId}`;
+            globalWebSocket = new WebSocket(wsUrl);
 
             globalWebSocket.onopen = () => {
                 console.log('WebSocket connection established');
