@@ -8,6 +8,9 @@ from bson import ObjectId
 import boto3
 import os
 from dotenv import load_dotenv
+from io import BytesIO
+from PIL import Image
+import mimetypes
 load_dotenv()
 router = APIRouter()
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -67,18 +70,38 @@ async def get_user_chats(user_id: str, db=Depends(get_database)):
 
 @router.post("/chat/upload")
 async def upload_file(file: UploadFile = File(...)):
+    # Read file content
+    file_content = await file.read()
     s3_key = f"uploads/{file.filename}"
     s3_client.upload_fileobj(
-            file.file,
-            S3_BUCKET_NAME,
-            s3_key,
-            ExtraArgs={"ACL": "public-read"},  # Make the file publicly accessible
-        )
+        BytesIO(file_content),
+        S3_BUCKET_NAME,
+        s3_key,
+        ExtraArgs={"ACL": "public-read"}, 
+    )
     file_url = f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
-
+    
+    file_size = len(file_content)
+    mime_type, _ = mimetypes.guess_type(file.filename)
+    file_type = mime_type.split('/')[0] if mime_type else "unknown" 
+    height, width = None, None
+    if file_type == "image":
+        try:
+            with Image.open(BytesIO(file_content)) as img:
+                width, height = img.size
+        except Exception:
+            pass
     return JSONResponse(
-            {"file_url": file_url, "message": "File uploaded successfully"}
-        )
+        {
+            "fileUrl": file_url,
+            "filename": file.filename,
+            "size": file_size,
+            "type": file_type,
+            "width": width,
+            "height": height,
+            "message": "File uploaded successfully",
+        }
+    )
 @router.get("/messages/{chat_id}", response_model=List[MessgaeResponse])
 async def get_chat_messages(chat_id: str, db=Depends(get_database)):
     # Find the message document for this chat
@@ -90,8 +113,8 @@ async def get_chat_messages(chat_id: str, db=Depends(get_database)):
     return [
         MessgaeResponse(
             id=str(msg.get("_id", ObjectId())),
-            chat_id=chat_id,
-            sender_id=msg["sender_id"],
+            chatId=chat_id,
+            senderId=msg["sender_id"],
             content=msg["content"],
             timestamp=msg["timestamp"],
             read=msg["read"],

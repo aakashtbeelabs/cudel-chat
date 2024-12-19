@@ -68,8 +68,8 @@ class ChatResponse(BaseModel):
 
 class MessgaeResponse(BaseModel):
     id: str
-    chat_id: str
-    sender_id: str
+    chatId: str
+    senderId: str
     content: str
     timestamp: datetime
     read: bool
