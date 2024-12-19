@@ -13,8 +13,8 @@ import pytz
 router = APIRouter()
 manager = ConnectionManager()
 
-@router.websocket("/ws/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: str, db=Depends(get_database)):
+@router.websocket("/ws/{user_id}/{booking_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str,booking_id: str, db=Depends(get_database)):
     await websocket.accept()
     
     consumer = MessageConsumer(user_id, websocket)
@@ -31,8 +31,9 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, db=Depends(get_
                 current_time = datetime.now(IST)
                 formatted_time = current_time.replace(tzinfo=None)
                 new_message = {
-                    "_id": ObjectId(),  # Add unique ID for each message
+                    "_id": ObjectId(),
                     "sender_id": user_id,
+                    "booking_id": booking_id,
                     "content": message_data["content"],
                     "timestamp": formatted_time,
                     "read": False,
@@ -58,7 +59,8 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, db=Depends(get_
                     {
                         "$set": {
                             "last_message": message_data["content"],
-                            "last_message_time": formatted_time  
+                            "last_message_time": formatted_time,
+                            "booking_id": booking_id
                         }
                     }
                 )
@@ -79,6 +81,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, db=Depends(get_
                                 "chat_id": chat_id,
                                 "content": message_data["content"],
                                 "sender_id": user_id,
+                                "booking_id": booking_id,
                                 "timestamp": formatted_timestamp,
                                 "mssg_type": message_data["mssg_type"],
                                 "file_type": message_data["file_type"],

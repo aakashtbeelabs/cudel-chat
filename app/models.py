@@ -62,6 +62,7 @@ class MessageDocument(BaseModel):
 class ChatResponse(BaseModel):
     id: str
     participants: List[str]
+    bookingId: str
     created_at: datetime
     last_message: Optional[str] = None
     last_message_time: Optional[datetime] = None

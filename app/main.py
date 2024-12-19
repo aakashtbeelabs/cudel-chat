@@ -4,6 +4,10 @@ from fastapi.responses import HTMLResponse
 from app.utills.rabbitmq import MessagePublisher
 from app.routers import chat, websocket
 from jinja2 import Environment, FileSystemLoader
+from dotenv import load_dotenv
+import os
+load_dotenv()
+BASE_URL = os.getenv("BASE_URL")
 templates_env = Environment(loader=FileSystemLoader("app"))
 app = FastAPI()
 message_publisher = MessagePublisher()
@@ -13,7 +17,7 @@ app.include_router(websocket.router)
 @app.get("/", response_class=HTMLResponse)
 async def get():
     template = templates_env.get_template("index.html")
-    rendered_html = template.render()
+    rendered_html = template.render(base_url=BASE_URL)
     return HTMLResponse(content=rendered_html)
 
 @app.on_event("startup")

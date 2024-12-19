@@ -33,6 +33,7 @@ async def create_chat(chat: Chat, db=Depends(get_database)):
             return ChatResponse(
                 id=str(existing_chat["_id"]),
                 participants=existing_chat.get("participants", []),
+                bookingId=existing_chat.get("bookingId"),
                 created_at=existing_chat.get("created_at"),
                 last_message=existing_chat.get("last_message"),
                 last_message_time=existing_chat.get("last_message_time")
@@ -47,6 +48,7 @@ async def create_chat(chat: Chat, db=Depends(get_database)):
         return ChatResponse(
             id=str(created_chat["_id"]),
             participants=created_chat.get("participants", []),
+            bookingId=created_chat.get("bookingId"),
             created_at=created_chat.get("created_at"),
             last_message=created_chat.get("last_message"),
             last_message_time=created_chat.get("last_message_time")
@@ -63,6 +65,7 @@ async def get_user_chats(user_id: str, db=Depends(get_database)):
     return [ChatResponse(
         id=str(chat["_id"]),
         participants=chat["participants"],
+        bookingId=chat["bookingId"],
         created_at=chat["created_at"],
         last_message=chat.get("last_message"),
         last_message_time=chat.get("last_message_time")
