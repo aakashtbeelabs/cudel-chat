@@ -70,7 +70,11 @@ class ChatResponse(BaseModel):
 class MessgaeResponse(BaseModel):
     id: str
     chatId: str
+    bookingId:str
     senderId: str
+    mssgType: Optional[str] = None
+    fileType: Optional[str] = None
+    fileName: Optional[str] = None
     content: str
     timestamp: datetime
     read: bool
