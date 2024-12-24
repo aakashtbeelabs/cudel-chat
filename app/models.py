@@ -28,6 +28,9 @@ class Message(BaseModel):
     mssg_type: Optional[str] = None
     file_type: Optional[str] = None
     file_name: Optional[str] = None
+    height: Optional[float] = None
+    width: Optional[float] = None
+    size: Optional[float] = None
     
     class Config:
         arbitrary_types_allowed = True
@@ -75,6 +78,9 @@ class MessgaeResponse(BaseModel):
     mssgType: Optional[str] = None
     fileType: Optional[str] = None
     fileName: Optional[str] = None
+    height: Optional[float] = None
+    width: Optional[float] = None
+    size: Optional[float] = None
     content: str
     timestamp: datetime
     read: bool

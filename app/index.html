@@ -274,7 +274,10 @@
                 type: 'system',
                 mssg_type: 'text',
                 file_name: null,
-                file_type: null
+                file_type: null,
+                height: null,
+                width: null,
+                size: null
             };
 
             if (globalWebSocket && globalWebSocket.readyState === WebSocket.OPEN) {
@@ -404,7 +407,10 @@
                 read: false,
                 mssg_type: 'text',
                 file_name: null,
-                file_type: null
+                file_type: null,
+                height: null,
+                width: null,
+                size: null
             };
 
             if (globalWebSocket && globalWebSocket.readyState === WebSocket.OPEN) {
@@ -468,7 +474,10 @@
                     file_name: file.name,
                     file_type: file.type,
                     timestamp: new Date().toLocaleString(),
-                    mssg_type: 'file'
+                    mssg_type: 'file',
+                    height:result.height,
+                    width:result.width,
+                    size:result.size
                 };
 
                 if (globalWebSocket && globalWebSocket.readyState === WebSocket.OPEN) {

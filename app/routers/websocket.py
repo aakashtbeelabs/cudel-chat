@@ -24,7 +24,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str,booking_id: str,
         while True:
             data = await websocket.receive_text()
             message_data = json.loads(data)
-            
             chat_id = message_data["chat_id"]
             try:
                 IST = pytz.timezone('Asia/Kolkata')
@@ -39,7 +38,10 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str,booking_id: str,
                     "read": False,
                     "mssg_type": message_data["mssg_type"],
                     "file_type": message_data["file_type"],
-                    "file_name": message_data["file_name"]
+                    "file_name": message_data["file_name"],
+                    "height": message_data["height"],
+                    "width": message_data["width"],
+                    "size": message_data["size"]
                 }
                 
                 # Add message to the messages document
@@ -85,7 +87,11 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str,booking_id: str,
                                 "timestamp": formatted_timestamp,
                                 "mssg_type": message_data["mssg_type"],
                                 "file_type": message_data["file_type"],
-                                "file_name": message_data["file_name"]
+                                "file_name": message_data["file_name"],
+                                "height": message_data["height"],
+                                "width": message_data["width"],
+                                "size": message_data["size"]
+
                             }
                         )
                         
