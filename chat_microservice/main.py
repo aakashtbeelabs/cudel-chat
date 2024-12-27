@@ -1,14 +1,14 @@
 # app/main.py
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
-from app.utills.rabbitmq import MessagePublisher
-from app.routers import chat, websocket
+from .utills.rabbitmq import MessagePublisher
+from .routers import chat, websocket
 from jinja2 import Environment, FileSystemLoader
 from dotenv import load_dotenv
 import os
 load_dotenv()
 BASE_URL = os.getenv("BASE_URL")
-templates_env = Environment(loader=FileSystemLoader("app"))
+templates_env = Environment(loader=FileSystemLoader(""))
 app = FastAPI()
 message_publisher = MessagePublisher()
 app.include_router(chat.router, prefix="/api")
@@ -27,3 +27,4 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     await message_publisher.close()
+

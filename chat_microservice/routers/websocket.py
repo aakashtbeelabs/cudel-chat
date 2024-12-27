@@ -1,14 +1,14 @@
 # app/routers/websocket.py
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
-from app.utills.connection_manager import ConnectionManager
-from app.utills.rabbitmq import MessageConsumer
-from app.database import get_database
+from ..utills.connection_manager import ConnectionManager
+from ..utills.rabbitmq import MessageConsumer
+from ..database import get_database
 from bson.errors import InvalidId
 import json
 from bson import ObjectId
 from datetime import datetime
-from app.utills.rabbitmq import message_publisher
+from ..utills.rabbitmq import message_publisher
 import pytz
 router = APIRouter()
 manager = ConnectionManager()
