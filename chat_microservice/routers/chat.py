@@ -2,8 +2,8 @@
 from typing import List
 from fastapi import APIRouter, Depends,UploadFile, File,status,HTTPException
 from fastapi.responses import JSONResponse
-from models import Chat, ChatResponse, MessgaeResponse
-from database import get_database
+from ..models import Chat, ChatResponse, MessgaeResponse
+from ..database import get_database
 from bson import ObjectId
 import boto3
 import os

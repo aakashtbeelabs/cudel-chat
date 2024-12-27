@@ -1,8 +1,8 @@
 # app/main.py
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
-from utills.rabbitmq import MessagePublisher
-from routers import chat, websocket
+from .utills.rabbitmq import MessagePublisher
+from .routers import chat, websocket
 from jinja2 import Environment, FileSystemLoader
 from dotenv import load_dotenv
 import os
