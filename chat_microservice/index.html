@@ -265,6 +265,7 @@
             const message = {
                 chat_id: chatId,
                 sender_id: userId,
+                receiverUserType:'akash',
                 content: `${userId} has joined the chat`,
                 timestamp: new Date().toLocaleString('en-US', {
                     timeZone: 'Asia/Kolkata',
@@ -401,6 +402,7 @@
             const message = {
                 chat_id: chatId,
                 sender_id: userId,
+                receiverUserType:'akash',
                 booking_id: bookingId,
                 content,
                 timestamp,
@@ -469,6 +471,7 @@
                 const message = {
                     chat_id: chatId,
                     sender_id: userId,
+                    receiverUserType:'akash',
                     booking_id: document.getElementById('bookingId').value,
                     content: result.fileUrl, // File URL
                     file_name: file.name,
