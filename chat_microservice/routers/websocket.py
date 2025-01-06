@@ -83,6 +83,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str,booking_id: str,
                 for participant in chat["participants"]:
                     if participant != user_id:
                         if participant not in active_connections:
+                            print(f"No active connection for user: {participant}")
                             # If no active connection, send notification
                             notification_payload = {
                                 "title": "New Message",
