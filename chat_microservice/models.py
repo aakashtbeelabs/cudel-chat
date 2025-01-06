@@ -22,6 +22,7 @@ class Message(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
     chat_id: str
     sender_id: str
+    receiver_user_type: str
     content: str
     timestamp: datetime = Field(default_factory=get_ist_time)
     read: bool = False
