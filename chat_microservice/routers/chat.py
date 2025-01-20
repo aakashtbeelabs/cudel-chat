@@ -2,7 +2,7 @@
 from typing import List
 from fastapi import APIRouter, Depends,UploadFile, File,status,HTTPException
 from fastapi.responses import JSONResponse
-from ..models import Chat, ChatResponse, MessgaeResponse
+from ..models import Chat, ChatResponse, GetBookingResponse, MessageResponse, MessgaeResponse
 from ..database import get_database
 from bson import ObjectId
 import boto3
@@ -136,3 +136,43 @@ async def get_chat_messages(chat_id: str, db=Depends(get_database)):
         )
         for msg in messages
     ]
+
+@router.get("/getChatDetails/{bookingId}", response_model=GetBookingResponse)
+async def get_booking(bookingId: str, db=Depends(get_database)):
+    booking = await db.chats.find_one({"bookingId": bookingId})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    messages = await db.messages.find(
+        {"chat_id": str(booking["_id"])}
+    ).sort("timestamp", -1).to_list(length=None)
+    if not messages:
+        raise HTTPException(status_code=404, detail="Messages not found")
+    all_messages = sorted(
+        (msg for message_doc in messages for msg in message_doc["messages"]),
+        key=lambda x: x["timestamp"],
+        reverse=True  # Sort by timestamp descending
+    )
+    formatted_messages = [
+        MessageResponse(
+            id=str(msg["_id"]),
+            senderId=msg["sender_id"],
+            receiverUserType=msg["receiver_user_type"],
+            bookingId=msg["booking_id"],
+            content=msg["content"],
+            timestamp=msg["timestamp"],
+            read=msg["read"],
+            mssgType=msg["mssg_type"],
+            fileType=msg["file_type"],
+            fileName=msg["file_name"],
+            height=msg["height"],
+            width=msg["width"],
+            size=msg["size"]
+        ) for msg in all_messages
+    ]
+    
+    return GetBookingResponse(
+        bookingId=str(booking["_id"]),
+        messages=formatted_messages
+    )
+    
