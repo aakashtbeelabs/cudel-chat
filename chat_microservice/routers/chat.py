@@ -1,8 +1,8 @@
 # app/routers/chat.py
 from typing import List
-from fastapi import APIRouter, Depends,UploadFile, File,status,HTTPException
+from fastapi import APIRouter, Depends, Query,UploadFile, File,status,HTTPException
 from fastapi.responses import JSONResponse
-from ..models import Chat, ChatResponse, GetBookingResponse, MessageResponse, MessgaeResponse
+from ..models import Chat, ChatResponse, GetBookingResponse, GetChats, MessageResponse, MessgaeResponse
 from ..database import get_database
 from bson import ObjectId
 import boto3
@@ -137,8 +137,43 @@ async def get_chat_messages(chat_id: str, db=Depends(get_database)):
         for msg in messages
     ]
 
+
+@router.get("/getChats")
+async def get_chats(
+    db=Depends(get_database),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100)
+):
+    skip = (page - 1) * per_page
+    total_count = await db.chats.count_documents({})
+    get_chats = (
+        await db.chats.find()
+        .skip(skip)
+        .limit(per_page)
+        .to_list(None)
+    )
+    chats = [
+        GetChats(
+            id=str(chat["_id"]),
+            bookingId=chat["bookingId"],
+            participants=chat["participants"],
+            createdAt=chat["created_at"],
+            lastMessage=chat.get("last_message"),
+            lastMessageTime=chat.get("last_message_time")
+        )
+        for chat in get_chats
+    ]
+
+    return {
+        "page": page,
+        "perPage": per_page,
+        "totalCount": total_count,
+        "totalPages": (total_count + per_page - 1) // per_page,
+        "chats": chats
+    }
+
 @router.get("/getChatDetails/{bookingId}", response_model=GetBookingResponse)
-async def get_booking(bookingId: str, db=Depends(get_database)):
+async def get_chat_details(bookingId: str, db=Depends(get_database)):
     booking = await db.chats.find_one({"bookingId": bookingId})
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
