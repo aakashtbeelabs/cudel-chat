@@ -136,3 +136,20 @@ async def get_chat_messages(chat_id: str, db=Depends(get_database)):
         )
         for msg in messages
     ]
+
+
+@router.get("/hello")
+async def hello():
+    return {"message": "Hello"}
+
+@router.get("/world")
+async def world():
+    return {"message": "World"}
+
+@router.post("/login")
+async def login():
+    return {"message": "Login successful"}
+
+@router.get("/item/{id}")
+async def item(id: str):
+    return {"item_id": id}
