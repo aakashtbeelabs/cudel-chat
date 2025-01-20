@@ -88,12 +88,14 @@ class MessgaeResponse(BaseModel):
 
 
 class GetChats(BaseModel):
+    
     id: str
     bookingId: str
     participants: List[str]
     createdAt: datetime
     lastMessage: Optional[str] = None
     lastMessage_time: Optional[datetime] = None
+
 class MessageResponse(BaseModel):
     id: str
     senderId: str
