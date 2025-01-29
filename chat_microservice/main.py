@@ -13,7 +13,8 @@ templates_env = Environment(loader=FileSystemLoader(""))
 app = FastAPI()
 origins = [
     "http://localhost:3000",
-    "https://admin-staging.cudel.in"
+    "https://admin-staging.cudel.in",
+    "https://staging.cudel.in"
 ]
 app.add_middleware(
     CORSMiddleware,
