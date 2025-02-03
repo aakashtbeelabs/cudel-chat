@@ -6,10 +6,23 @@ from .routers import chat, websocket
 from jinja2 import Environment, FileSystemLoader
 from dotenv import load_dotenv
 import os
+from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 BASE_URL = os.getenv("BASE_URL")
 templates_env = Environment(loader=FileSystemLoader(""))
 app = FastAPI()
+origins = [
+    "http://localhost:3000",
+    "https://admin-staging.cudel.in",
+    "https://staging.cudel.in"
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 message_publisher = MessagePublisher()
 app.include_router(chat.router, prefix="/api")
 app.include_router(websocket.router)

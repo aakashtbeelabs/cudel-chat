@@ -1,0 +1,63 @@
+name: Deploy to EC2 - staging branch CI/CD
+ 
+on:
+  push:
+    branches:
+      - chat-staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set Up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies for chat_microservices 
+        run: |
+          cd chat_microservices
+          python -m pip install --upgrade pip
+          uv venv
+          source .venv/bin/activate
+          uv pip install -r requirements.txt
+          git pull origin chat-staging
+
+      - name: Deploy to EC2 CHAT STAGING
+        env:
+          PRIVATE_KEY: ${{ secrets.EC2_CHAT_STAGING_PRIVATE_KEY }}
+        run: |
+          cd chat_microservices
+          echo "$PRIVATE_KEY" > deploy_key.pem
+          chmod 400 deploy_key.pem
+
+          ssh -o StrictHostKeyChecking=no -i deploy_key.pem ubuntu@ec2-98-130-109-253.ap-south-2.compute.amazonaws.com << 'EOF'
+
+            tmux kill-session -t cude_chat_staging 2>/dev/null || true
+
+            cd ~/chat_microservices
+
+            git pull origin chat-staging
+
+            source .venv/bin/activate
+
+            uv pip install -r requirements.txt
+
+            tmux new-session -d -s cude_chat_staging
+
+            tmux send-keys -t cude_chat_staging "cd ~/chat_microservices" C-m
+
+            tmux send-keys -t cude_chat_staging "source .venv/bin/activate" C-m
+
+            tmux send-keys -t cude_chat_staging "uvicorn main:app --host 0.0.0.0 --port 8000 --reload" C-m
+
+            # Display status
+            echo "FastAPI application deployed and running in tmux session"
+            echo "To attach to the session: tmux attach -t cude_chat_staging"
+          EOF
+          
+

@@ -22,6 +22,7 @@ class Message(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
     chat_id: str
     sender_id: str
+    receiver_user_type: str
     content: str
     timestamp: datetime = Field(default_factory=get_ist_time)
     read: bool = False
@@ -84,3 +85,31 @@ class MessgaeResponse(BaseModel):
     content: str
     timestamp: datetime
     read: bool
+
+
+class GetChats(BaseModel):
+    
+    id: str
+    bookingId: str
+    participants: List[str]
+    createdAt: datetime
+    lastMessage: Optional[str] = None
+    lastMessage_time: Optional[datetime] = None
+
+class MessageResponse(BaseModel):
+    id: str
+    senderId: str
+    receiverUserType: str
+    bookingId: str
+    content: str
+    timestamp: datetime
+    read: bool
+    mssgType: str
+    fileType: Optional[str] = None
+    fileName: Optional[str] = None
+    height: Optional[int] = None
+    width: Optional[int] = None
+    size: Optional[int] = None
+class GetBookingResponse(BaseModel):
+    bookingId: str
+    messages: List[MessageResponse]
