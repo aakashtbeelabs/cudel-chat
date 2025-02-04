@@ -6,6 +6,8 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 RABBITMQURL = os.getenv("RABBITMQURL")
+CHATEXCHANGE = os.getenv("RABBITMQEXCHANGE")
+RABBITMQQUEUE = os.getenv("RABBITMQQUEUE")
 class MessagePublisher:
     def __init__(self):
         self.connection = None
@@ -14,12 +16,12 @@ class MessagePublisher:
     async def connect(self):
         self.connection = await aio_pika.connect_robust(RABBITMQURL)
         self.channel = await self.connection.channel()
-        await self.channel.declare_exchange("chat_exchange", aio_pika.ExchangeType.DIRECT)
+        await self.channel.declare_exchange(CHATEXCHANGE, aio_pika.ExchangeType.DIRECT)
 
     async def publish_message(self, routing_key: str, message: dict):
         if not self.channel:
             await self.connect()
-        exchange = await self.channel.get_exchange("chat_exchange")
+        exchange = await self.channel.get_exchange(CHATEXCHANGE)
         await exchange.publish(
             aio_pika.Message(
                 body=json.dumps(message).encode(),
@@ -48,19 +50,19 @@ class MessageConsumer:
         
         # Declare exchange
         exchange = await self.channel.declare_exchange(
-            "chat_exchange",
+            CHATEXCHANGE,
             aio_pika.ExchangeType.DIRECT
         )
         
         # Declare queue with user_id as name
         self.queue = await self.channel.declare_queue(
-            f"user_{self.user_id}",
+            f"{RABBITMQQUEUE}_{self.user_id}",
             auto_delete=True
         )
         
         # Bind queue to exchange
         await self.queue.bind(
-            exchange="chat_exchange",
+            exchange=CHATEXCHANGE,
             routing_key=self.user_id
         )
 
