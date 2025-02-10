@@ -12,6 +12,8 @@ from ..utills.rabbitmq import message_publisher
 import pytz
 import asyncio
 import httpx
+import os
+NOTIFICATION_URL = os.getenv("NOTIFICATION_URL")
 router = APIRouter()
 manager = ConnectionManager()
 active_connections = {}
@@ -136,7 +138,7 @@ async def send_notification(notification_data: dict):
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
-                'https://staging-api.cudel.in/api/notification/chat-notification',
+                NOTIFICATION_URL,
                 json=notification_data,
                 headers={'Content-Type': 'application/json'}
             )
