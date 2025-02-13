@@ -11,19 +11,49 @@ from dotenv import load_dotenv
 from io import BytesIO
 from PIL import Image
 import mimetypes
+from botocore.config import Config
+import gzip
 load_dotenv()
 router = APIRouter()
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_REGION=os.getenv("AWS_REGION")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+S3_BUCKET_FOLDER = os.getenv("S3_BUCKET_FOLDER")
+s3_config = Config(
+    retries = dict(
+        max_attempts = 3
+    )
+)
 
 s3_client = boto3.client(
     "s3",
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
     region_name=AWS_REGION,
+    config=s3_config
 )
+
+def compress_image(image_data, max_size_kb=500):
+    img = Image.open(BytesIO(image_data))
+    
+    # Convert RGBA to RGB if needed
+    if img.mode == 'RGBA':
+        img = img.convert('RGB')
+    
+    # Initial quality
+    quality = 95
+    output = BytesIO()
+    
+    while quality > 5:
+        output.seek(0)
+        output.truncate(0)
+        img.save(output, format='JPEG', quality=quality, optimize=True)
+        if len(output.getvalue()) <= max_size_kb * 1024:
+            break
+        quality -= 5
+        
+    return output.getvalue()
 
 @router.post("/chats", response_model=ChatResponse, status_code=status.HTTP_200_OK)
 async def create_chat(chat: Chat, db=Depends(get_database)):
@@ -73,42 +103,80 @@ async def get_user_chats(user_id: str, db=Depends(get_database)):
 
 @router.post("/chat/upload")
 async def upload_file(file: UploadFile = File(...)):
-    # Read file content
-    file_content = await file.read()
-    s3_key = f"uploads/{file.filename}"
-    s3_client.upload_fileobj(
-        BytesIO(file_content),
-        S3_BUCKET_NAME,
-        s3_key,
-        ExtraArgs={"ACL": "public-read"}, 
-    )
-    file_url = f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
-    
-    file_size = len(file_content)
-    mime_type, _ = mimetypes.guess_type(file.filename)
-    file_type = mime_type.split('/')[0] if mime_type else "unknown" 
-    height, width = None, None
-    if file_type == "application":
-        height, width = 250, 500
-    elif file_type == "video":
-        height, width = 300, 300
-    if file_type == "image":
-        try:
-            with Image.open(BytesIO(file_content)) as img:
-                width, height = img.size
-        except Exception:
-            pass
-    return JSONResponse(
-        {
+    try:
+        file_content = await file.read()
+        mime_type, _ = mimetypes.guess_type(file.filename)
+        file_type = mime_type.split('/')[0] if mime_type else "unknown"
+        
+        # Compress based on file type
+        if file_type == "image":
+            file_content = compress_image(file_content)
+            content_type = 'image/jpeg'
+            # Update filename to .jpg if it's not already
+            if not file.filename.lower().endswith(('.jpg', '.jpeg')):
+                file.filename = os.path.splitext(file.filename)[0] + '.jpg'
+                
+            # Upload image without ContentEncoding
+            upload_params = {
+                'Body': file_content,
+                'Bucket': S3_BUCKET_NAME,
+                'Key': f"{S3_BUCKET_FOLDER}/{file.filename}",
+                'ContentType': content_type
+            }
+        else:
+            # Compress other files using gzip
+            compressed_content = BytesIO()
+            with gzip.GzipFile(fileobj=compressed_content, mode='wb') as gz:
+                gz.write(file_content)
+            file_content = compressed_content.getvalue()
+            
+            # Upload non-image with gzip encoding
+            upload_params = {
+                'Body': file_content,
+                'Bucket': S3_BUCKET_NAME,
+                'Key': f"{S3_BUCKET_FOLDER}/{file.filename}",
+                'ContentType': file.content_type,
+                'ContentEncoding': 'gzip'
+            }
+        
+        # Upload to S3 with appropriate parameters
+        s3_client.put_object(**upload_params)
+        
+        # Generate direct URL
+        file_url = f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{S3_BUCKET_FOLDER}/{file.filename}"
+        
+        # Get dimensions for images
+        height, width = None, None
+        if file_type == "application":
+            height, width = 250, 500
+        elif file_type == "video":
+            height, width = 300, 300
+        elif file_type == "image":
+            try:
+                with Image.open(BytesIO(file_content)) as img:
+                    width, height = img.size
+            except Exception:
+                pass
+                
+        return JSONResponse({
             "fileUrl": file_url,
             "filename": file.filename,
-            "size": file_size,
+            "size": len(file_content),
             "type": file_type,
             "width": width,
             "height": height,
-            "message": "File uploaded successfully",
-        }
-    )
+            "message": "File uploaded successfully"
+        })
+        
+    except Exception as e:
+        print(f"Upload error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "message": f"Upload failed: {str(e)}",
+                "error": True
+            }
+        )
 @router.get("/messages/{chat_id}", response_model=List[MessgaeResponse])
 async def get_chat_messages(chat_id: str, db=Depends(get_database)):
     # Find the message document for this chat
