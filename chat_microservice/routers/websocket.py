@@ -135,6 +135,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str,booking_id: str,
 
 async def send_notification(notification_data: dict):
     """Send notification using the chat notification API"""
+    print(f"Sending notification: {notification_data}")
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
@@ -142,6 +143,7 @@ async def send_notification(notification_data: dict):
                 json=notification_data,
                 headers={'Content-Type': 'application/json'}
             )
+            print(f"Notification response: {response.json()}")
             response.raise_for_status()
             return response.json()
         except Exception as e:
