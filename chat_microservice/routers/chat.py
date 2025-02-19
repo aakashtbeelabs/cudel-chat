@@ -108,20 +108,27 @@ async def upload_file(file: UploadFile = File(...)):
         mime_type, _ = mimetypes.guess_type(file.filename)
         file_type = mime_type.split('/')[0] if mime_type else "unknown"
         
-        # Compress based on file type
+        # Handle different file types
         if file_type == "image":
+            # Image compression logic (unchanged)
             file_content = compress_image(file_content)
             content_type = 'image/jpeg'
-            # Update filename to .jpg if it's not already
             if not file.filename.lower().endswith(('.jpg', '.jpeg')):
                 file.filename = os.path.splitext(file.filename)[0] + '.jpg'
-                
-            # Upload image without ContentEncoding
+            
             upload_params = {
                 'Body': file_content,
                 'Bucket': S3_BUCKET_NAME,
                 'Key': f"{S3_BUCKET_FOLDER}/{file.filename}",
                 'ContentType': content_type
+            }
+        elif file_type == "video":
+            # Don't compress videos, upload as is
+            upload_params = {
+                'Body': file_content,
+                'Bucket': S3_BUCKET_NAME,
+                'Key': f"{S3_BUCKET_FOLDER}/{file.filename}",
+                'ContentType': mime_type or 'video/mp4'
             }
         else:
             # Compress other files using gzip
@@ -130,7 +137,6 @@ async def upload_file(file: UploadFile = File(...)):
                 gz.write(file_content)
             file_content = compressed_content.getvalue()
             
-            # Upload non-image with gzip encoding
             upload_params = {
                 'Body': file_content,
                 'Bucket': S3_BUCKET_NAME,
