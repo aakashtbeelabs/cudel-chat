@@ -1,6 +1,7 @@
 # app/routers/chat.py
 from typing import List
-from fastapi import APIRouter, Depends, Query,UploadFile, File,status,HTTPException
+from fastapi import APIRouter, Depends, Query,UploadFile, File,status,HTTPException,Security
+from fastapi.security import APIKeyHeader
 from fastapi.responses import JSONResponse
 from ..models import Chat, ChatResponse, GetBookingResponse, GetChats, MessageResponse, MessgaeResponse
 from ..database import get_database
@@ -20,6 +21,16 @@ AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_REGION=os.getenv("AWS_REGION")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 S3_BUCKET_FOLDER = os.getenv("S3_BUCKET_FOLDER")
+API_KEY_NAME = os.getenv("API_KEY_NAME")
+API_KEY = os.getenv("API_KEY")
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+async def verify_api_key(api_key: str = Security(api_key_header)):
+    if api_key != API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key"
+        )
+    return api_key
 s3_config = Config(
     retries = dict(
         max_attempts = 3
@@ -216,7 +227,8 @@ async def get_chat_messages(chat_id: str, db=Depends(get_database)):
 async def get_chats(
     db=Depends(get_database),
     page: int = Query(1, ge=1),
-    per_page: int = Query(10, ge=1, le=100)
+    per_page: int = Query(10, ge=1, le=100),
+    api_key: str = Depends(verify_api_key)
 ):
     skip = (page - 1) * per_page
     total_count = await db.chats.count_documents({})
