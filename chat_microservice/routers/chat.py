@@ -195,7 +195,7 @@ async def upload_file(file: UploadFile = File(...)):
             }
         )
 @router.get("/messages/{chat_id}", response_model=List[MessgaeResponse])
-async def get_chat_messages(chat_id: str, db=Depends(get_database)):
+async def get_chat_messages(chat_id: str, db=Depends(get_database),api_key: str = Depends(verify_api_key)):
     # Find the message document for this chat
     message_doc = await db.messages.find_one({"chat_id": chat_id})
     if not message_doc:
