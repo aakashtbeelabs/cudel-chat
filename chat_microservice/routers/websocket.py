@@ -19,7 +19,7 @@ router = APIRouter()
 manager = ConnectionManager()
 active_connections = {}
 @router.websocket("/ws/{user_id}/{booking_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: str,booking_id: str, db=Depends(get_database),api_key: str = Depends(verify_api_key)):
+async def websocket_endpoint(websocket: WebSocket, user_id: str,booking_id: str, db=Depends(get_database)):
     await websocket.accept()
     
     consumer = MessageConsumer(user_id, websocket)
