@@ -1,6 +1,7 @@
 # app/routers/websocket.py
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from .chat import verify_api_key
 from ..utills.connection_manager import ConnectionManager
 from ..utills.rabbitmq import MessageConsumer
 from ..database import get_database
@@ -18,7 +19,7 @@ router = APIRouter()
 manager = ConnectionManager()
 active_connections = {}
 @router.websocket("/ws/{user_id}/{booking_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: str,booking_id: str, db=Depends(get_database)):
+async def websocket_endpoint(websocket: WebSocket, user_id: str,booking_id: str, db=Depends(get_database),api_key: str = Depends(verify_api_key)):
     await websocket.accept()
     
     consumer = MessageConsumer(user_id, websocket)

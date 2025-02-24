@@ -67,7 +67,7 @@ def compress_image(image_data, max_size_kb=500):
     return output.getvalue()
 
 @router.post("/chats", response_model=ChatResponse, status_code=status.HTTP_200_OK)
-async def create_chat(chat: Chat, db=Depends(get_database)):
+async def create_chat(chat: Chat, db=Depends(get_database),api_key: str = Depends(verify_api_key)):
     try:
         existing_chat = await db.chats.find_one({"bookingId": chat.bookingId})
         if existing_chat:
@@ -101,7 +101,7 @@ async def create_chat(chat: Chat, db=Depends(get_database)):
 
 
 @router.get("/chats/{user_id}", response_model=List[ChatResponse])
-async def get_user_chats(user_id: str, db=Depends(get_database)):
+async def get_user_chats(user_id: str, db=Depends(get_database),api_key: str = Depends(verify_api_key)):
     chats = await db.chats.find({"participants": user_id}).to_list(None)
     return [ChatResponse(
         id=str(chat["_id"]),
@@ -113,7 +113,7 @@ async def get_user_chats(user_id: str, db=Depends(get_database)):
     ) for chat in chats]
 
 @router.post("/chat/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...),api_key: str = Depends(verify_api_key)):
     try:
         file_content = await file.read()
         mime_type, _ = mimetypes.guess_type(file.filename)
@@ -259,7 +259,7 @@ async def get_chats(
     }
 
 @router.get("/getChatDetails/{bookingId}", response_model=GetBookingResponse)
-async def get_chat_details(bookingId: str, db=Depends(get_database)):
+async def get_chat_details(bookingId: str, db=Depends(get_database),api_key: str = Depends(verify_api_key)):
     booking = await db.chats.find_one({"bookingId": bookingId})
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
